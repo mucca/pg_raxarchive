@@ -11,6 +11,7 @@ from tempfile import NamedTemporaryFile
 from contextlib import closing, contextmanager
 
 import pyrax
+import pyrax.exceptions as exc
 
 
 @contextmanager
@@ -24,6 +25,7 @@ def removing_dir(dirname):
 @contextmanager
 def atomicfilewriter(filename, mode='wb'):
     try:
+
         tmpfilename = os.path.join(
             os.path.dirname(filename),
             '.tmp-{}'.format(os.path.basename(filename)))
@@ -39,7 +41,7 @@ def atomicfilewriter(filename, mode='wb'):
 
 def iterchunks(stream):
     while True:
-        data = stream.read(2**20)
+        data = stream.read(2 ** 20)
         if not data:
             break
         yield data
@@ -77,21 +79,27 @@ class PGRaxArchiver(object):
         logging.debug('Uploading file %s...', obj_name)
         self.cnt.upload_file(filename, obj_name=obj_name, return_none=True)
 
+    def exists(self, src_name):
+        try:
+            self.cnt.get_object(src_name)
+            return True
+        except exc.NoSuchObject:
+            return False
+
     def download(self, src_name, dst_name, compress='auto'):
         # XXX: use external memory instead of store everything in RAM
         if compress == 'auto':
-            names = self.cnt.get_object_names()
-            if src_name + '.gz' in names:
+            if self.exists(src_name + '.gz'):
                 compress = True
                 src_name = src_name + '.gz'
-            elif src_name in names:
+            elif self.exists(src_name):
                 compress = False
             else:
                 raise FileNotFound(src_name)
 
         logging.debug('Fetching file %s...', src_name)
         data = self.cnt.fetch_object(src_name)
-            
+
         if compress is True:
             logging.debug('Decompressing...')
             stream = StringIO(data)
