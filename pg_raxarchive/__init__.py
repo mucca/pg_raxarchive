@@ -64,6 +64,8 @@ def main():
     upload_parser.add_argument('filename', help='WAL filename')
     upload_parser.add_argument('--disable-compression', dest='compress',
                                default=True, action='store_false')
+    upload_parser.add_argument('--use-gzip', dest='use_gzip', default=False,
+                               action='store_true')
     upload_parser.set_defaults(cmd='upload')
 
     download_parser = subparsers.add_parser('download', help='Download a file')
@@ -82,7 +84,7 @@ def main():
     archiver = PGRaxArchiver(args.config, args.region, args.container, args.use_public)
 
     if args.cmd == 'upload':
-        return archiver.upload(args.srcpath, args.filename, args.compress)
+        return archiver.upload(args.srcpath, args.filename, args.compress, use_gzip=args.use_gzip)
     elif args.cmd == 'download':
         return archiver.download(args.filename, args.destpath)
     elif args.cmd == 'cleanup':

@@ -2,6 +2,8 @@ import os
 import gzip
 import shutil
 import logging
+import subprocess
+
 try:
     from cStringIO import StringIO
     StringIO  # XXX: pyflakes workaround
@@ -58,20 +60,27 @@ class PGRaxArchiver(object):
         self.cf = pyrax.connect_to_cloudfiles(region=region, public=use_public)
         self.cnt = self.cf.create_container(container_name)
 
-    def upload(self, src_name, dst_name, compress=True):
+    def upload(self, src_name, dst_name, compress=True, use_gzip=False):
         if not compress:
             self._upload(src_name, dst_name)
 
         fout = NamedTemporaryFile(suffix='.gz', mode='wb', delete=False)
         try:
-            fout.close()
-            logging.debug('Compressing file %s...', src_name)
-            with \
-                    open(src_name, 'rb') as fin, \
-                    closing(gzip.GzipFile(fout.name, mode='wb')) as gzout:
-                for chunk in iterchunks(fin):
-                    gzout.write(chunk)
-            return self._upload(fout.name, dst_name + '.gz')
+            if use_gzip:
+                logging.debug('Compressing file %s with gzip...', src_name)
+                p = subprocess.Popen(["gzip", '-c', src_name], stdout=fout)
+                assert p.wait() == 0, 'Gzip compression failed'
+                fout.close()
+                return self._upload(fout.name, dst_name + '.gz')
+            else:
+                fout.close()
+                logging.debug('Compressing file %s...', src_name)
+                with \
+                        open(src_name, 'rb') as fin, \
+                        closing(gzip.GzipFile(fout.name, mode='wb')) as gzout:
+                    for chunk in iterchunks(fin):
+                        gzout.write(chunk)
+                return self._upload(fout.name, dst_name + '.gz')
         finally:
             fout.unlink(fout.name)
 
