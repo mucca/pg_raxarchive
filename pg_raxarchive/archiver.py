@@ -4,6 +4,9 @@ import shutil
 import logging
 import subprocess
 
+from multiprocessing.dummy import Pool as ThreadPool
+
+
 try:
     from cStringIO import StringIO
     StringIO  # XXX: pyflakes workaround
@@ -88,32 +91,73 @@ class PGRaxArchiver(object):
         logging.debug('Uploading file %s...', obj_name)
         self.cnt.upload_file(filename, obj_name=obj_name, return_none=True)
 
-    def exists(self, src_name):
+    def _exists_remote(self, src_name):
         try:
             self.cnt.get_object(src_name)
             return True
         except exc.NoSuchObject:
             return False
 
-    def download(self, src_name, dst_name, compress='auto'):
+    def _get_cache_path(self, src_name, dst_name):
+        dst_direcotry = os.path.join(*os.path.split(dst_name)[:-1])
+        return os.path.join(dst_direcotry, src_name)
+
+    def _pop_from_cache(self, src_name, dst_name):
+        cached_path = self._get_cache_path(src_name, dst_name)
+        try:
+            data = open(cached_path).read()
+            os.remove(cached_path)
+            return data
+        except Exception, exc:
+            logging.warn('Impossible to open cached file %s (%s)', cached_path, exc)
+
+    def _fetch_files(self, src_name, dst_name, compress, prefetch):
+        prefetch = 5
+        pool = ThreadPool(prefetch or 1)
+        tasks = []
+        for i in range(prefetch):
+            source = hex(int(src_name, 16) + i).rstrip("L").lstrip("0x").upper().zfill(len(src_name))
+            tasks.append(pool.apply_async(self._get_from_remote,
+                                          (source, dst_name, compress)))
+
+        for task in tasks:
+            source, data = task.get()
+            cache_filename = self._get_cache_path(source, dst_name)
+            with open(cache_filename, 'wb') as cache_file:
+                cache_file.write(data)
+                logging.info('Saved for later %s', cache_filename)
+
+    def _get_from_remote(self, src_name, dst_name, compress='auto'):
         # XXX: use external memory instead of store everything in RAM
+        _src_name = src_name
         if compress == 'auto':
-            if self.exists(src_name + '.gz'):
+            if self._exists_remote(src_name + '.gz'):
                 compress = True
-                src_name = src_name + '.gz'
-            elif self.exists(src_name):
+                _src_name = _src_name + '.gz'
+            elif self._exists_remote(_src_name):
                 compress = False
             else:
-                raise FileNotFound(src_name)
+                raise FileNotFound(_src_name)
 
-        logging.debug('Fetching file %s...', src_name)
-        data = self.cnt.fetch_object(src_name)
+        logging.debug('Fetching file %s...', _src_name)
+        data = self.cnt.fetch_object(_src_name)
 
         if compress is True:
-            logging.debug('Decompressing...')
-            stream = StringIO(data)
-            with closing(gzip.GzipFile(fileobj=stream, mode='rb')) as fin:
-                data = fin.read()
+            data = self._decompress_stream(data)
+
+        return src_name, data
+
+    def _decompress_stream(self, data):
+        logging.debug('Decompressing...')
+        stream = StringIO(data)
+        with closing(gzip.GzipFile(fileobj=stream, mode='rb')) as fin:
+            return fin.read()
+
+    def download(self, src_name, dst_name, compress='auto', prefetch=0):
+        data = self._pop_from_cache(src_name, dst_name)
+        if not data:
+            self._fetch_files(src_name, dst_name, compress=compress, prefetch=prefetch)
+        data = self._pop_from_cache(src_name, dst_name)
 
         logging.debug('Writing file %s...', dst_name)
         with atomicfilewriter(dst_name, 'wb') as fout:

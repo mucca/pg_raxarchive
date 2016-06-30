@@ -71,6 +71,8 @@ def main():
     download_parser = subparsers.add_parser('download', help='Download a file')
     download_parser.add_argument('filename', help='WAL filename')
     download_parser.add_argument('destpath', help='Full destination path')
+    download_parser.add_argument('--prefetch', default=0, dest='prefetch',
+                                 help='Number of files to prefetch from cloudfiles')
     download_parser.set_defaults(cmd='download')
 
     cleanup_parser = subparsers.add_parser('cleanup', help='Cleanup archives')
@@ -86,7 +88,7 @@ def main():
     if args.cmd == 'upload':
         return archiver.upload(args.srcpath, args.filename, args.compress, use_gzip=args.use_gzip)
     elif args.cmd == 'download':
-        return archiver.download(args.filename, args.destpath)
+        return archiver.download(args.filename, args.destpath, prefetch=args.prefetch)
     elif args.cmd == 'cleanup':
         return archiver.cleanup(args.filename)
     else:
