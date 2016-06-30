@@ -157,7 +157,7 @@ class PGRaxArchiver(object):
         data = self._pop_from_cache(src_name, dst_name)
         if not data:
             self._fetch_files(src_name, dst_name, compress=compress, prefetch=prefetch)
-        data = self._pop_from_cache(src_name, dst_name)
+            data = self._pop_from_cache(src_name, dst_name)
 
         logging.debug('Writing file %s...', dst_name)
         with atomicfilewriter(dst_name, 'wb') as fout:
