@@ -112,7 +112,6 @@ class PGRaxArchiver(object):
             logging.debug('Impossible to open cached file %s (%s)', cached_path, exc)
 
     def _fetch_files(self, src_name, dst_name, compress, prefetch):
-        prefetch = 5
         pool = ThreadPool(prefetch or 1)
         tasks = []
         for i in range(prefetch):

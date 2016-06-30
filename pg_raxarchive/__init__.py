@@ -71,7 +71,7 @@ def main():
     download_parser = subparsers.add_parser('download', help='Download a file')
     download_parser.add_argument('filename', help='WAL filename')
     download_parser.add_argument('destpath', help='Full destination path')
-    download_parser.add_argument('--prefetch', default=0, dest='prefetch',
+    download_parser.add_argument('--prefetch', default=0, dest='prefetch', type=int,
                                  help='Number of files to prefetch from cloudfiles')
     download_parser.set_defaults(cmd='download')
 
