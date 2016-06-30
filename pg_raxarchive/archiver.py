@@ -100,7 +100,7 @@ class PGRaxArchiver(object):
 
     def _get_cache_path(self, src_name, dst_name):
         dst_direcotry = os.path.join(*os.path.split(dst_name)[:-1])
-        return os.path.join(dst_direcotry, src_name)
+        return os.path.join(dst_direcotry, src_name + '.tmp')
 
     def _pop_from_cache(self, src_name, dst_name):
         cached_path = self._get_cache_path(src_name, dst_name)
@@ -109,7 +109,7 @@ class PGRaxArchiver(object):
             os.remove(cached_path)
             return data
         except Exception, exc:
-            logging.warn('Impossible to open cached file %s (%s)', cached_path, exc)
+            logging.debug('Impossible to open cached file %s (%s)', cached_path, exc)
 
     def _fetch_files(self, src_name, dst_name, compress, prefetch):
         prefetch = 5
@@ -125,7 +125,7 @@ class PGRaxArchiver(object):
             cache_filename = self._get_cache_path(source, dst_name)
             with open(cache_filename, 'wb') as cache_file:
                 cache_file.write(data)
-                logging.info('Saved for later %s', cache_filename)
+                logging.debug('Saved for later %s', cache_filename)
 
     def _get_from_remote(self, src_name, dst_name, compress='auto'):
         # XXX: use external memory instead of store everything in RAM
