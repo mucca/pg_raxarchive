@@ -58,10 +58,24 @@ class FileNotFound(RuntimeError):
 
 class PGRaxArchiver(object):
     def __init__(self, filename, region, container_name, use_public):
-        pyrax.set_setting('identity_type', 'rackspace')
-        pyrax.set_credential_file(filename)
-        self.cf = pyrax.connect_to_cloudfiles(region=region, public=use_public)
-        self.cnt = self.cf.create_container(container_name)
+        self.filename = filename
+        self.region = region
+        self.container_name = container_name
+        self.use_public = use_public
+
+    @property
+    def cf(self):
+        if not hasattr(self, '_cf'):
+            pyrax.set_setting('identity_type', 'rackspace')
+            pyrax.set_credential_file(self.filename)
+            self._cf = pyrax.connect_to_cloudfiles(region=self.region, public=self.use_public)
+        return self._cf
+
+    @property
+    def cnt(self):
+        if not hasattr(self, '_cnt'):
+            self._cnt = self.cf.create_container(self.container_name)
+        return self._cnt
 
     def upload(self, src_name, dst_name, compress=True, use_gzip=False):
         if compress:
