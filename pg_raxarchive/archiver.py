@@ -96,18 +96,20 @@ class PGRaxArchiver(object):
             return False
 
     def download(self, src_name, dst_name, compress='auto'):
-        # XXX: use external memory instead of store everything in RAM
-        if compress == 'auto':
-            if self.exists(src_name + '.gz'):
+        from pyrax.exceptions import NoSuchObject
+        try:
+            if compress == 'auto':
+                logging.debug('Fetching file %s.gz ...', src_name)
+                data = self.cnt.fetch_object("{}.gz".format(src_name))
                 compress = True
-                src_name = src_name + '.gz'
-            elif self.exists(src_name):
-                compress = False
-            else:
+                src_name = "{}.gz".format(src_name)
+        except NoSuchObject:
+            try:
+                logging.debug('Fetching file %s ...', src_name)
+                data = self.cnt.fetch_object(src_name)
+                compress = False if compress == 'auto' else compress
+            except NoSuchObject:
                 raise FileNotFound(src_name)
-
-        logging.debug('Fetching file %s...', src_name)
-        data = self.cnt.fetch_object(src_name)
 
         if compress is True:
             logging.debug('Decompressing...')
